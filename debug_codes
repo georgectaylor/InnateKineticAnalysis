@@ -284,3 +284,108 @@ print(f"\nFirst k-bin time series:")
 print(f"  mean: {ts_check.mean():.4e}")
 print(f"  std:  {ts_check.std():.4e}")
 print(f"  std/mean: {ts_check.std()/ts_check.mean():.4f}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Build phasor from magnitude-based DELTA_PHI_k2
+from scipy.fft import fft, fftfreq
+import numpy as np
+import matplotlib.pyplot as plt
+
+n_frames = DELTA_PHI_k2.shape[1]
+freqs = fftfreq(n_frames, d=1.0/FRAME_RATE)
+omegas_arr = 2 * np.pi * freqs
+
+# Find probe frequency - use fundamental
+omega_probe = 2 * np.pi * (1.0/n_frames) * FRAME_RATE
+omega_idx = np.argmin(np.abs(omegas_arr - omega_probe))
+print(f"Probe omega: {omega_probe:.4f} rad/s")
+
+# Compute phasor per k-bin
+g_arr = np.zeros(len(k_bins2))
+s_arr = np.zeros(len(k_bins2))
+
+for i in range(len(k_bins2)):
+    ts = DELTA_PHI_k2[i]
+    # Detrend: subtract mean
+    ts_dt = ts - np.mean(ts)
+    F = fft(ts_dt)
+    # Normalize by total power excluding DC
+    N = np.sum(np.abs(F[1:])**2)
+    if N == 0:
+        continue
+    g_arr[i] = np.real(F[omega_idx]) / N * np.sum(np.abs(F[1:]))
+    s_arr[i] = np.imag(F[omega_idx]) / N * np.sum(np.abs(F[1:]))
+
+print(f"g range: {g_arr.min():.4f} to {g_arr.max():.4f}")
+print(f"s range: {s_arr.min():.4f} to {s_arr.max():.4f}")
+
+# Compute noise floor from noise reference
+g_noise = np.zeros(len(k_bins2))
+s_noise = np.zeros(len(k_bins2))
+
+# Recompute Sk2 noise equivalent
+_, DELTA_PHI_noise2, Sk_noise2 = compute_spatial_fft_magnitude(delta_phi_noise)
+ratio2 = Sk2 / Sk_noise2
+
+# Plot all four phasor panels
+fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+axes = axes.flatten()
+thresholds = [None, 1.0, 2.0, 3.0]
+
+# Color by window
+from matplotlib.patches import Patch
+window_colors = {'A_membrane': 'steelblue',
+                 'B_organelle': 'darkorange', 
+                 'C_debris': 'mediumseagreen'}
+k_colors = np.array(['lightgrey'] * len(k_bins2), dtype=object)
+for name, (k_lo, k_hi) in WINDOWS.items():
+    mask = (k_bins2 >= k_lo) & (k_bins2 < k_hi)
+    k_colors[mask] = window_colors[name]
+
+s_min, s_max = Sk2.min(), Sk2.max()
+dot_sizes = 5 + 80 * (Sk2 - s_min) / (s_max - s_min + 1e-10)
+
+theta = np.linspace(0, np.pi, 300)
+sc_g = 0.5 + 0.5*np.cos(theta)
+sc_s = 0.5*np.sin(theta)
+
+for idx, thresh in enumerate(thresholds):
+    ax = axes[idx]
+    ax.plot(sc_g, sc_s, 'k--', lw=1, alpha=0.5)
+    ax.set_xlim(-0.1, 1.1)
+    ax.set_ylim(-0.1, 0.65)
+    ax.set_xlabel('g')
+    ax.set_ylabel('s')
+
+    if thresh is None:
+        keep = np.ones(len(k_bins2), dtype=bool)
+        ax.set_title('Plot 0: all k-bins')
+    else:
+        keep = ratio2 > thresh
+        ax.set_title(f'Plot {idx}: S(k) > {thresh:.0f}x noise ({keep.sum()}/{len(k_bins2)} bins)')
+
+    if np.any(keep):
+        ax.scatter(g_arr[keep], s_arr[keep],
+                   s=dot_sizes[keep],
+                   c=k_colors[keep],
+                   alpha=0.7, edgecolors='k', linewidths=0.3)
+
+    legend_patches = [Patch(color=c, label=n) for n, c in window_colors.items()]
+    ax.legend(handles=legend_patches, fontsize=7, loc='upper right')
+
+plt.tight_layout()
+plt.show()
