@@ -132,3 +132,42 @@ plt.axhline(0, color='grey', lw=0.5)
 plt.axvline(0, color='grey', lw=0.5)
 plt.legend()
 plt.show()
+
+
+
+
+
+
+
+
+
+
+# Inspect the FFT of one k-bin directly
+from scipy.fft import fft, fftfreq
+import numpy as np
+import matplotlib.pyplot as plt
+
+ts = DELTA_PHI_k[passing_idx[0]]
+std = np.std(ts)
+print(f"Time series std: {std:.4e}")
+print(f"Time series mean: {np.mean(ts):.4e}")
+print(f"Time series min: {ts.min():.4e}, max: {ts.max():.4e}")
+
+ts_norm = ts / std
+F = fft(ts_norm)
+
+freqs = fftfreq(len(ts), d=1.0/FRAME_RATE)
+power = np.abs(F)**2
+
+print(f"\nFFT DC term (F[0]): {np.abs(F[0]):.4e}")
+print(f"FFT max non-DC term: {np.abs(F[1:]).max():.4e}")
+print(f"Index of max non-DC: {np.abs(F[1:]).argmax() + 1}")
+print(f"Frequency at max non-DC: {freqs[np.abs(F[1:]).argmax() + 1]:.4f} Hz")
+
+plt.figure(figsize=(10,3))
+plt.plot(freqs[1:len(freqs)//2], power[1:len(freqs)//2])
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Power')
+plt.title('Power spectrum (excluding DC)')
+plt.yscale('log')
+plt.show()
