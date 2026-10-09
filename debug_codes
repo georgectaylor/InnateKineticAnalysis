@@ -389,3 +389,40 @@ for idx, thresh in enumerate(thresholds):
 
 plt.tight_layout()
 plt.show()
+
+
+
+
+
+
+
+
+
+
+
+# Show all phasor points ignoring noise threshold
+import matplotlib.pyplot as plt
+import numpy as np
+
+theta = np.linspace(0, np.pi, 300)
+plt.figure(figsize=(7,6))
+plt.plot(0.5 + 0.5*np.cos(theta), 0.5*np.sin(theta), 
+         'k--', alpha=0.5, label='Semicircle')
+
+plt.scatter(g_arr, s_arr, 
+            s=dot_sizes,
+            c=k_colors,
+            alpha=0.7, edgecolors='k', linewidths=0.3)
+
+plt.xlim(-1.5, 1.5)
+plt.ylim(-3.5, 3.5)
+plt.xlabel('g')
+plt.ylabel('s')
+plt.title('All k-bins, no threshold')
+plt.axhline(0, color='grey', lw=0.5)
+plt.axvline(0.5, color='grey', lw=0.5, linestyle=':')
+plt.legend()
+plt.show()
+
+print(f"Number of k-bins total: {len(k_bins2)}")
+print(f"Number with |g| < 1 and |s| < 1: {((np.abs(g_arr) < 1) & (np.abs(s_arr) < 1)).sum()}")
