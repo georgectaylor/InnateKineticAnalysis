@@ -76,3 +76,59 @@ plt.ylabel('s')
 plt.title('Phasor at peak frequency')
 plt.tight_layout()
 plt.show()
+
+
+
+
+
+
+
+
+
+
+def compute_phasor_correct(DELTA_PHI_k, target_omega, frame_rate=FRAME_RATE):
+    n_k, n_frames = DELTA_PHI_k.shape
+    freqs = fftfreq(n_frames, d=1.0/frame_rate)
+    omegas_arr = 2 * np.pi * freqs
+    omega_idx = np.argmin(np.abs(omegas_arr - target_omega))
+    g_arr = np.zeros(n_k)
+    s_arr = np.zeros(n_k)
+    for i in range(n_k):
+        ts = DELTA_PHI_k[i]
+        std = np.std(ts)
+        if std == 0:
+            continue
+        ts_norm = ts / std
+        F = fft(ts_norm)
+        # Normalize by the DC component (zero frequency term)
+        # This is the correct FLIM-style normalization
+        DC = np.abs(F[0])
+        if DC == 0:
+            continue
+        g_arr[i] = np.real(F[omega_idx]) / DC
+        s_arr[i] = np.imag(F[omega_idx]) / DC
+    return g_arr, s_arr
+
+g_correct, s_correct = compute_phasor_correct(DELTA_PHI_k, peak_omega)
+print(f"g range: {g_correct.min():.4f} to {g_correct.max():.4f}")
+print(f"s range: {s_correct.min():.4f} to {s_correct.max():.4f}")
+
+# Plot
+import matplotlib.pyplot as plt
+ratio = Sk_normalized / Sk_noise_normalized
+passing_idx = np.where(ratio > 1)[0]
+
+theta = np.linspace(0, np.pi, 300)
+plt.figure(figsize=(6,5))
+plt.plot(0.5 + 0.5*np.cos(theta), 0.5*np.sin(theta), 'k--', alpha=0.5, label='Semicircle')
+plt.scatter(g_correct[passing_idx], s_correct[passing_idx],
+            c='steelblue', s=40, alpha=0.7)
+plt.xlim(-0.1, 1.1)
+plt.ylim(-0.6, 0.6)
+plt.xlabel('g')
+plt.ylabel('s')
+plt.title('Phasor at peak frequency (corrected normalization)')
+plt.axhline(0, color='grey', lw=0.5)
+plt.axvline(0, color='grey', lw=0.5)
+plt.legend()
+plt.show()
