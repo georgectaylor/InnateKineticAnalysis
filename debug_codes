@@ -426,3 +426,51 @@ plt.show()
 
 print(f"Number of k-bins total: {len(k_bins2)}")
 print(f"Number with |g| < 1 and |s| < 1: {((np.abs(g_arr) < 1) & (np.abs(s_arr) < 1)).sum()}")
+
+
+
+
+
+
+
+
+
+
+# Correct phasor normalization
+g_arr2 = np.zeros(len(k_bins2))
+s_arr2 = np.zeros(len(k_bins2))
+
+for i in range(len(k_bins2)):
+    ts = DELTA_PHI_k2[i]
+    ts_dt = ts - np.mean(ts)
+    F = fft(ts_dt)
+    # Simple, correct normalization: divide by F[0] of the
+    # non-detrended series (total area)
+    ts_pos = ts - ts.min()  # shift to positive
+    F_pos = fft(ts_pos)
+    norm = np.abs(F_pos[0])
+    if norm == 0:
+        continue
+    g_arr2[i] = np.real(F[omega_idx]) / norm
+    s_arr2[i] = np.imag(F[omega_idx]) / norm
+
+print(f"g range: {g_arr2.min():.4f} to {g_arr2.max():.4f}")
+print(f"s range: {s_arr2.min():.4f} to {s_arr2.max():.4f}")
+
+# Plot
+theta = np.linspace(0, np.pi, 300)
+plt.figure(figsize=(7,6))
+plt.plot(0.5 + 0.5*np.cos(theta), 0.5*np.sin(theta),
+         'k--', alpha=0.5, label='Semicircle')
+plt.scatter(g_arr2, s_arr2,
+            s=dot_sizes,
+            c=k_colors,
+            alpha=0.7, edgecolors='k', linewidths=0.3)
+plt.xlim(-0.2, 1.2)
+plt.ylim(-0.2, 0.7)
+plt.xlabel('g')
+plt.ylabel('s')
+plt.title('Phasor - corrected normalization')
+plt.axhline(0, color='grey', lw=0.5)
+plt.legend()
+plt.show()
