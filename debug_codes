@@ -190,3 +190,33 @@ print(f"  std:  {np.std(ts_mag):.4e}")
 print(f"  min:  {ts_mag.min():.4e}")
 print(f"  max:  {ts_mag.max():.4e}")
 print(f"  std/mean ratio: {np.std(ts_mag)/np.mean(ts_mag):.4f}")
+
+
+
+
+# Check the raw phase stack for temporal variation
+print(f"phi shape: {phi.shape}")
+print(f"phi dtype: {phi.dtype}")
+
+# Check if frames actually differ
+frame0 = phi[:,:,0]
+frame1 = phi[:,:,1]
+frame50 = phi[:,:,50]
+
+print(f"\nFrame 0 mean: {frame0.mean():.4e}")
+print(f"Frame 1 mean: {frame1.mean():.4e}")
+print(f"Frame 50 mean: {frame50.mean():.4e}")
+
+print(f"\nFrame 0 std: {frame0.std():.4e}")
+print(f"Frame 1 std: {frame1.std():.4e}")
+
+print(f"\nAre frame 0 and frame 1 identical: {np.allclose(frame0, frame1)}")
+print(f"Are frame 0 and frame 50 identical: {np.allclose(frame0, frame50)}")
+
+# Check temporal variation at one pixel
+pixel_ts = phi[100, 100, :]
+print(f"\nPixel (100,100) time series:")
+print(f"  mean: {pixel_ts.mean():.4e}")
+print(f"  std: {pixel_ts.std():.4e}")
+print(f"  min: {pixel_ts.min():.4e}")
+print(f"  max: {pixel_ts.max():.4e}")
