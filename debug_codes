@@ -1,0 +1,78 @@
+# Sweep probe frequencies to find where phasor signal is strongest
+from scipy.fft import fft, fftfreq
+import numpy as np
+import matplotlib.pyplot as plt
+
+n_frames = DELTA_PHI_k.shape[1]
+freqs = fftfreq(n_frames, d=1.0/FRAME_RATE)
+omegas_arr = 2 * np.pi * freqs
+pos_freqs = freqs[freqs > 0]
+pos_omegas = omegas_arr[freqs > 0]
+
+# For first passing k-bin, plot power spectrum
+ratio = Sk_normalized / Sk_noise_normalized
+passing_idx = np.where(ratio > 1)[0]
+first_passing = passing_idx[0]
+
+ts = DELTA_PHI_k[first_passing]
+std = np.std(ts)
+ts_norm = ts / std
+F = fft(ts_norm)
+power = np.abs(F[freqs > 0])**2
+
+plt.figure(figsize=(10,4))
+plt.subplot(1,2,1)
+plt.plot(pos_freqs, power)
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Power')
+plt.title('Power spectrum of first passing k-bin')
+plt.yscale('log')
+
+# Find peak frequency
+peak_idx = np.argmax(power)
+peak_freq = pos_freqs[peak_idx]
+peak_omega = pos_omegas[peak_idx]
+print(f"Peak frequency: {peak_freq:.4f} Hz")
+print(f"Peak omega: {peak_omega:.4f} rad/s")
+print(f"Fundamental frequency: {FRAME_RATE/n_frames:.4f} Hz")
+
+# Recompute phasor at peak frequency
+def compute_phasor_at_omega(DELTA_PHI_k, target_omega, frame_rate=FRAME_RATE):
+    n_k, n_frames = DELTA_PHI_k.shape
+    freqs = fftfreq(n_frames, d=1.0/frame_rate)
+    omegas_arr = 2 * np.pi * freqs
+    omega_idx = np.argmin(np.abs(omegas_arr - target_omega))
+    g_arr = np.zeros(n_k)
+    s_arr = np.zeros(n_k)
+    for i in range(n_k):
+        ts = DELTA_PHI_k[i]
+        std = np.std(ts)
+        if std == 0:
+            continue
+        ts_norm = ts / std
+        F = fft(ts_norm)
+        total = np.sum(np.abs(F[1:]))
+        if total == 0:
+            continue
+        g_arr[i] = np.real(F[omega_idx]) / total
+        s_arr[i] = np.imag(F[omega_idx]) / total
+    return g_arr, s_arr
+
+g_peak, s_peak = compute_phasor_at_omega(DELTA_PHI_k, peak_omega)
+print(f"\nAt peak frequency:")
+print(f"g range: {g_peak.min():.4f} to {g_peak.max():.4f}")
+print(f"s range: {s_peak.min():.4f} to {s_peak.max():.4f}")
+
+# Plot phasor at peak frequency
+plt.subplot(1,2,2)
+theta = np.linspace(0, np.pi, 300)
+plt.plot(0.5 + 0.5*np.cos(theta), 0.5*np.sin(theta), 'k--', alpha=0.5)
+plt.scatter(g_peak[passing_idx], s_peak[passing_idx], 
+            c='steelblue', s=30, alpha=0.7)
+plt.xlim(-0.1, 1.1)
+plt.ylim(-0.1, 0.6)
+plt.xlabel('g')
+plt.ylabel('s')
+plt.title('Phasor at peak frequency')
+plt.tight_layout()
+plt.show()
