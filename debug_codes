@@ -220,3 +220,67 @@ print(f"  mean: {pixel_ts.mean():.4e}")
 print(f"  std: {pixel_ts.std():.4e}")
 print(f"  min: {pixel_ts.min():.4e}")
 print(f"  max: {pixel_ts.max():.4e}")
+
+
+
+
+
+
+
+
+
+
+
+# Recompute spatial FFT using magnitude before radial averaging
+import numpy as np
+from scipy.fft import fft2, fftfreq
+from scipy.signal.windows import tukey
+
+def compute_spatial_fft_magnitude(delta_phi, pixel_size=PIXEL_SIZE):
+    rows, cols, n_frames = delta_phi.shape
+    window_2d = make_tukey_window_2d((rows, cols))
+    
+    kx = fftfreq(cols, d=pixel_size) * 2 * np.pi
+    ky = fftfreq(rows, d=pixel_size) * 2 * np.pi
+    KX, KY = np.meshgrid(kx, ky)
+    K_MAG = np.sqrt(KX**2 + KY**2)
+    
+    k_max = np.max(K_MAG)
+    k_min_nonzero = np.min(K_MAG[K_MAG > 0])
+    n_bins = 50
+    bin_edges = np.linspace(k_min_nonzero, k_max, n_bins + 1)
+    k_bins_new = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+    
+    # Store magnitude, not complex value
+    DELTA_PHI_k_mag = np.zeros((n_bins, n_frames))
+    bin_counts = np.zeros(n_bins, dtype=int)
+    
+    for t in range(n_frames):
+        if t % 10 == 0:
+            print(f"  Processing frame {t}/{n_frames}")
+        frame = delta_phi[:, :, t] * window_2d
+        F = fft2(frame)
+        F_mag = np.abs(F)  # Take magnitude BEFORE averaging
+        for b in range(n_bins):
+            mask = (K_MAG >= bin_edges[b]) & (K_MAG < bin_edges[b+1])
+            if np.any(mask):
+                DELTA_PHI_k_mag[b, t] = np.mean(F_mag[mask])
+                bin_counts[b] = np.sum(mask)
+    
+    valid = bin_counts > 0
+    DELTA_PHI_k_mag = DELTA_PHI_k_mag[valid]
+    k_bins_new = k_bins_new[valid]
+    Sk_new = np.mean(DELTA_PHI_k_mag**2, axis=1)
+    
+    print(f"Done. k range: {k_bins_new[0]:.2f} to {k_bins_new[-1]:.2f} rad/um")
+    return k_bins_new, DELTA_PHI_k_mag, Sk_new
+
+print("Recomputing spatial FFT with magnitude averaging...")
+k_bins2, DELTA_PHI_k2, Sk2 = compute_spatial_fft_magnitude(delta_phi)
+
+# Quick check
+ts_check = DELTA_PHI_k2[0]
+print(f"\nFirst k-bin time series:")
+print(f"  mean: {ts_check.mean():.4e}")
+print(f"  std:  {ts_check.std():.4e}")
+print(f"  std/mean: {ts_check.std()/ts_check.mean():.4f}")
