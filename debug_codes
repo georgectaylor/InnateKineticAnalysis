@@ -171,3 +171,22 @@ plt.ylabel('Power')
 plt.title('Power spectrum (excluding DC)')
 plt.yscale('log')
 plt.show()
+
+
+
+
+
+
+
+
+# Use magnitude of spatial FFT instead of complex values
+DELTA_PHI_k_mag = np.abs(DELTA_PHI_k)
+
+# Check if magnitude has real temporal variation
+ts_mag = DELTA_PHI_k_mag[passing_idx[0]]
+print(f"Magnitude time series:")
+print(f"  mean: {np.mean(ts_mag):.4e}")
+print(f"  std:  {np.std(ts_mag):.4e}")
+print(f"  min:  {ts_mag.min():.4e}")
+print(f"  max:  {ts_mag.max():.4e}")
+print(f"  std/mean ratio: {np.std(ts_mag)/np.mean(ts_mag):.4f}")
